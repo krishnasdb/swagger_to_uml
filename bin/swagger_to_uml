@@ -97,7 +97,17 @@ class Property:
         # items type is given or must be resolved from $ref
         if 'items' in type_dict:
             if 'type' in type_dict['items']:
-                items = type_dict['items']['type']
+                items = type_dict['items']['properties']
+            else:
+                items = resolve_ref(type_dict['items']['$ref'])
+                ref_type = items
+        elif 'properties' in type_dict:
+            if 'errors' in type_dict['properties']:
+                if 'type' in type_dict['properties']['errors']:
+                    items = type_dict['properties']['errors']['items']['properties']
+                    type_str = type_dict['properties']['errors']['type']
+            elif 'type' in type_dict:
+                    items = type_dict['properties']
             else:
                 items = resolve_ref(type_dict['items']['$ref'])
                 ref_type = items
@@ -368,14 +378,22 @@ class Swagger:
 
     @property
     def uml(self):
-        uml_str = '@startuml\nhide empty members\nset namespaceSeparator none\n\n{paths}\n{definitions}\n@enduml\n'
+        uml_str = '@startuml\nhide empty members\nset namespaceSeparator none\n\n{paths}\n{definitions}\n'
+        temp=[]
+        for index, d in enumerate(self.paths):
+            if index%3 == 2:
+                temp.append('\n@enduml\n@startuml\nhide empty members\nset namespaceSeparator none\n\n'+d.uml) 
+            else:
+                temp.append(d.uml)
+        if len(self.paths)%3 !=0:
+            temp[-1]+='\n@enduml\n'
         return uml_str.format(
-            paths='\n\n'.join([d.uml for d in self.paths]),
+            paths='\n\n'.join(temp),
             definitions='\n\n'.join([d.uml for d in self.definitions])
         )
 
 
 if __name__ == '__main__':
-    input_file_name = sys.argv[1]
+    input_file_name = sys.argv[1] if len(sys.argv) > 1 else "swagger/wallet_swagger/wallet_UML.json"
     sw = Swagger.from_file(input_file_name)
     print(sw.uml, end='', flush=True)
